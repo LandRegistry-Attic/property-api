@@ -52,7 +52,7 @@ def get_tasks(postcode, street_paon_saon):
                          'respective parts. Expected street_PAON_SAON.')
 
     query_dict = {
-        'postcode': postcode,
+        'postcode': postcode.upper(),
         'street': parts[0],
         'paon': parts[1],
     }
