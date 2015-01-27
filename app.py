@@ -5,6 +5,14 @@ import requests
 app = Flask(__name__)
 
 
+PROPERTY_TYPES = {
+    'http://landregistry.data.gov.uk/def/common/detached': 'detached',
+    'http://landregistry.data.gov.uk/def/common/flat-maisonette': 'flat-maisonette',
+    'http://landregistry.data.gov.uk/def/common/semi-detached': 'semi-detached',
+    'http://landregistry.data.gov.uk/def/common/terraced': 'terraced',
+}
+
+
 # see http://landregistry.data.gov.uk/app/hpi/qonsole
 PPI_QUERY_TMPL = """
 prefix xsd: <http://www.w3.org/2001/XMLSchema#>
@@ -16,21 +24,22 @@ prefix lrcommon: <http://landregistry.data.gov.uk/def/common/>
 # The postcode to query is set in the line - ?address_instance common:postcode "PL6 8RU"^^xsd:string .
 
 
-SELECT ?paon ?saon ?street ?town ?county ?postcode ?amount ?date
+SELECT ?paon ?saon ?street ?town ?county ?postcode ?amount ?date ?property_type
 WHERE
 {{
-  ?transx lrppi:pricePaid ?amount ;
-          lrppi:transactionDate ?date ;
-          lrppi:propertyAddress ?addr.
+    ?transx lrppi:pricePaid ?amount ;
+            lrppi:transactionDate ?date ;
+            lrppi:propertyAddress ?addr ;
+            lrppi:propertyType ?property_type.
 
 {}
-  ?addr lrcommon:postcode ?postcode.
+    ?addr lrcommon:postcode ?postcode.
 
-  OPTIONAL {{?addr lrcommon:county ?county}}
-  OPTIONAL {{?addr lrcommon:paon ?paon}}
-  OPTIONAL {{?addr lrcommon:saon ?saon}}
-  OPTIONAL {{?addr lrcommon:street ?street}}
-  OPTIONAL {{?addr lrcommon:town ?town}}
+    OPTIONAL {{?addr lrcommon:county ?county}}
+    OPTIONAL {{?addr lrcommon:paon ?paon}}
+    OPTIONAL {{?addr lrcommon:saon ?saon}}
+    OPTIONAL {{?addr lrcommon:street ?street}}
+    OPTIONAL {{?addr lrcommon:town ?town}}
 
 }}
 ORDER BY ?amount
@@ -45,7 +54,6 @@ def get_query_parts(query_dict):
 
 @app.route('/properties/<postcode>/<street_paon_saon>', methods=['GET'])
 def get_tasks(postcode, street_paon_saon):
-    #import pdb;pdb.set_trace()
     parts = street_paon_saon.upper().split('_')
     if len(parts) not in [2, 3]:
         raise ValueError('Could not split combined street, PAON and SAON into '
@@ -63,22 +71,30 @@ def get_tasks(postcode, street_paon_saon):
     ppi_url = 'http://landregistry.data.gov.uk/landregistry/query'
     resp = requests.post(ppi_url, data={'output': 'json', 'query': query})
 
-    property_list = resp.json()['results']['bindings']
+    sale_list = resp.json()['results']['bindings']
 
-    result_list = []
-    for property_dict in property_list:
-        result_list.append({
-            'saon': 'saon goes here',
-            'paon': 'paon goes here',
-            'street': 'street goes here',
-            'town': 'town goes here',
-            'county': 'county goes here',
-            'postcode': 'postcode goes here',
-            'amount': property_dict['amount']['value'],
-            'date': property_dict['date']['value'],
-        })
+    latest_sale_date = ''
+    latest_sale = None
+    for sale in sale_list:
+        sale_date = sale['date']['value']
+        latest_sale_date = max(sale_date, latest_sale_date)
+        if latest_sale_date == sale_date:
+            latest_sale = sale
 
-    return jsonify({'results': result_list})
+    result = {
+        'saon': 'saon goes here',
+        'paon': 'paon goes here',
+        'street': 'street goes here',
+        'town': 'town goes here',
+        'county': 'county goes here',
+        'postcode': 'postcode goes here',
+        'amount': latest_sale['amount']['value'],
+        'date': latest_sale['date']['value'],
+        'property_type': PROPERTY_TYPES[latest_sale['property_type']['value']],
+        'coordinates' : {'latitude': 99, 'longitude': 99},
+    }
+
+    return jsonify(result)
 
 
 if __name__ == '__main__':
