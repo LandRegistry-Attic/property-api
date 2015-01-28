@@ -5,14 +5,6 @@ import requests
 app = Flask(__name__)
 
 
-PROPERTY_TYPES = {
-    'http://landregistry.data.gov.uk/def/common/detached': 'detached',
-    'http://landregistry.data.gov.uk/def/common/flat-maisonette': 'flat-maisonette',
-    'http://landregistry.data.gov.uk/def/common/semi-detached': 'semi-detached',
-    'http://landregistry.data.gov.uk/def/common/terraced': 'terraced',
-}
-
-
 # see http://landregistry.data.gov.uk/app/hpi/qonsole
 PPI_QUERY_TMPL = """
 prefix xsd: <http://www.w3.org/2001/XMLSchema#>
@@ -44,6 +36,10 @@ WHERE
 }}
 ORDER BY ?amount
 """
+
+
+def get_property_type(url):
+    return url.partition('http://landregistry.data.gov.uk/def/common/')[2]
 
 
 def get_query_parts(query_dict):
@@ -90,7 +86,8 @@ def get_tasks(postcode, street_paon_saon):
         'postcode': 'postcode goes here',
         'amount': latest_sale['amount']['value'],
         'date': latest_sale['date']['value'],
-        'property_type': PROPERTY_TYPES[latest_sale['property_type']['value']],
+        'property_type':
+            get_property_type(latest_sale['property_type']['value']),
         'coordinates' : {'latitude': 99, 'longitude': 99},
     }
 
