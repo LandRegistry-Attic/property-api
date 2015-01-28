@@ -16,25 +16,17 @@ prefix lrcommon: <http://landregistry.data.gov.uk/def/common/>
 # The postcode to query is set in the line - ?address_instance common:postcode "PL6 8RU"^^xsd:string .
 
 
-SELECT ?paon ?saon ?street ?town ?county ?postcode ?amount ?date ?property_type
+SELECT ?amount ?date ?property_type
 WHERE
 {{
     ?transx lrppi:pricePaid ?amount ;
             lrppi:transactionDate ?date ;
             lrppi:propertyAddress ?addr ;
             lrppi:propertyType ?property_type.
-
 {}
-    ?addr lrcommon:postcode ?postcode.
-
-    OPTIONAL {{?addr lrcommon:county ?county}}
-    OPTIONAL {{?addr lrcommon:paon ?paon}}
-    OPTIONAL {{?addr lrcommon:saon ?saon}}
-    OPTIONAL {{?addr lrcommon:street ?street}}
-    OPTIONAL {{?addr lrcommon:town ?town}}
 
 }}
-ORDER BY ?amount
+ORDER BY desc(?date) limit 1
 """
 
 
@@ -69,13 +61,12 @@ def get_tasks(postcode, street_paon_saon):
 
     sale_list = resp.json()['results']['bindings']
 
-    latest_sale_date = ''
-    latest_sale = None
-    for sale in sale_list:
-        sale_date = sale['date']['value']
-        latest_sale_date = max(sale_date, latest_sale_date)
-        if latest_sale_date == sale_date:
-            latest_sale = sale
+    if len(sale_list) == 0:
+        return jsonify({'message': 'No record found.'})
+    elif len(sale_list) > 1:
+        return jsonify({'message': 'More then one record found.'})
+
+    latest_sale = sale_list[0]
 
     result = {
         'saon': 'saon goes here',
