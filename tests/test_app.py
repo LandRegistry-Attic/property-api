@@ -24,7 +24,7 @@ class ViewPropertyTestCase(unittest.TestCase):
         response = self.app.get('/properties/%s' % street_address_url)
         assert response.status_code == 404
 
-    @mock.patch('requests.post', returns=search_results)
+    @mock.patch('requests.post')
     def test_search_results_calls_search_api(self, mock_post):
         search_query = "PL6%208RU/PATTINSON%20DRIVE_100"
 
