@@ -1,5 +1,6 @@
 from service.server import app, get_query_parts
 import unittest
+import json
 
 
 import mock
@@ -7,34 +8,47 @@ import unittest
 import requests
 import responses
 
+from .fake_response import FakeResponse
+
+
 # see http://landregistry.data.gov.uk/app/hpi/qonsole
-PPI_QUERY_TMPL = """
-prefix xsd: <http://www.w3.org/2001/XMLSchema#>
-prefix lrppi: <http://landregistry.data.gov.uk/def/ppi/>
-prefix lrcommon: <http://landregistry.data.gov.uk/def/common/>
 
-# Returns the Price Paid data from the default graph for each transaction record having
-# an address with the given postcode.
-# The postcode to query is set in the line - ?address_instance common:postcode "PL6 8RU"^^xsd:string .
+single_response = FakeResponse(b'''{
+     "head": {
+       "vars": [ "amount" , "date" , "property_type" ]
+     } ,
+     "results": {
+       "bindings": [
+         {
+           "amount": { "datatype": "http://www.w3.org/2001/XMLSchema#integer" , "type": "typed-literal" , "value": "100000" } ,
+           "date": { "datatype": "http://www.w3.org/2001/XMLSchema#date" , "type": "typed-literal" , "value": "2003-04-17" } ,
+           "property_type": { "type": "uri" , "value": "http://landregistry.data.gov.uk/def/common/semi-detached" }
+         }
+       ]
+     }
+   }'''
+)
 
-
-SELECT ?amount ?date ?property_type
-WHERE
-{{
-    ?transx lrppi:pricePaid ?amount ;
-            lrppi:transactionDate ?date ;
-            lrppi:propertyAddress ?addr ;
-            lrppi:propertyType ?property_type.
-{}
-
-}}
-ORDER BY desc(?date) limit 1
-"""
-
-def get_query_parts(query_dict):
-    query_tmpl = '  ?addr lrcommon:{} "{}"^^xsd:string.'
-    query_lines = [query_tmpl.format(k, v) for k, v in query_dict.items()]
-    return '\n'.join(query_lines)
+double_response = FakeResponse(b'''{
+     "head": {
+       "vars": [ "amount" , "date" , "property_type" ]
+     } ,
+     "results": {
+       "bindings": [
+         {
+           "amount": { "datatype": "http://www.w3.org/2001/XMLSchema#integer" , "type": "typed-literal" , "value": "100000" } ,
+           "date": { "datatype": "http://www.w3.org/2001/XMLSchema#date" , "type": "typed-literal" , "value": "2003-04-17" } ,
+           "property_type": { "type": "uri" , "value": "http://landregistry.data.gov.uk/def/common/semi-detached" }
+         },
+         {
+           "amount": { "datatype": "http://www.w3.org/2001/XMLSchema#integer" , "type": "typed-literal" , "value": "100001" } ,
+           "date": { "datatype": "http://www.w3.org/2001/XMLSchema#date" , "type": "typed-literal" , "value": "2003-04-18" } ,
+           "property_type": { "type": "uri" , "value": "http://landregistry.data.gov.uk/def/common/semi-detached" }
+         }
+       ]
+     }
+   }'''
+)
 
 
 class ViewPropertyTestCase(unittest.TestCase):
@@ -71,3 +85,27 @@ class ViewPropertyTestCase(unittest.TestCase):
         self.assertTrue(str(query_dict['postcode']) in str(kwargs['data']))
         self.assertTrue(str(query_dict['street']) in str(kwargs['data']))
         self.assertTrue(str(query_dict['paon']) in str(kwargs['data']))
+
+    @mock.patch('requests.post', return_value=single_response)
+    def test_single_result(self, mock_post):
+        search_query = "PL2%201AD/ALBERT%20ROAD_10_FLAT%202"
+        response = self.app.get('/properties/%s' % search_query)
+
+        self.assertTrue(str('100000') in str(response.data))
+        self.assertTrue(str('2003-04-17') in str(response.data))
+
+    @mock.patch('requests.post', return_value=double_response)
+    def test_two_result(self, mock_post):
+        search_query = "PL6%208RU/PATTINSON%20DRIVE_100"
+        response = self.app.get('/properties/%s' % search_query)
+
+        self.assertTrue(str('More then one record found.') in str(response.data))
+
+    @mock.patch('requests.post', return_value=double_response)
+    def test_unable_to_split(self, mock_post):
+        search_query = "PL6%208RU/PATTINSON%20DRIVE100"
+
+        with self.assertRaises(Exception) as context:
+            response = self.app.get('/properties/%s' % search_query)
+
+        self.assertTrue(str('Could not split combined street') in str(context.exception))
