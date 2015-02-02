@@ -1,8 +1,13 @@
-from service.server import app
+from service.server import app, get_query_parts
 import mock
 import unittest
 import requests
 import responses
+
+from stubresponses import title
+from stubresponses import search_results, test_two_search_results
+
+
 
 
 class ViewPropertyTestCase(unittest.TestCase):
@@ -22,15 +27,24 @@ class ViewPropertyTestCase(unittest.TestCase):
         street_address_url = "Trewithy Court"
         response = self.app.get('/properties/%s' % street_address_url)
         assert response.status_code == 404
-'''
-    @mock.patch('requests.get', returns=search_results)
-    def test_search_results_calls_search_api(self, mock_get):
+
+    @mock.patch('requests.post', returns=search_results)
+    def test_search_results_calls_search_api(self, mock_post):
         search_query = "PL6%208RU/PATTINSON%20DRIVE_100"
+
+        query_dict = {
+            'postcode': 'PL6 8RU',
+            'street': 'ATTINSON DRIVE',
+            'paon': '100',
+        }
+
+        query = '\nprefix xsd: <http://www.w3.org/2001/XMLSchema#>\nprefix lrppi: <http://landregistry.data.gov.uk/def/ppi/>\nprefix lrcommon: <http://landregistry.data.gov.uk/def/common/>\n\n# Returns the Price Paid data from the default graph for each transaction record having\n# an address with the given postcode.\n# The postcode to query is set in the line - ?address_instance common:postcode "PL6 8RU"^^xsd:string .\n\n\nSELECT ?amount ?date ?property_type\nWHERE\n{\n    ?transx lrppi:pricePaid ?amount ;\n            lrppi:transactionDate ?date ;\n            lrppi:propertyAddress ?addr ;\n            lrppi:propertyType ?property_type.\n  ?addr lrcommon:street "PATTINSON DRIVE"^^xsd:string.\n  ?addr lrcommon:postcode "PL6 8RU"^^xsd:string.\n  ?addr lrcommon:paon "100"^^xsd:string.\n\n}\nORDER BY desc(?date) limit 1\n'
+
         response = self.app.get('/properties/%s' % search_query)
-        mock_get.assert_called_with('%s/%s' % (self.ppi_api, search_query))
+        mock_post.assert_called_with('%s' % (self.ppi_api), data={'output': 'json', 'query': query})
 
 
-
+'''
     @mock.patch('requests.get', returns=search_results)
     def test_search_results_calls_search_api(self, mock_get):
         search_query = "TN12"
