@@ -4,10 +4,6 @@ import unittest
 import requests
 import responses
 
-from stubresponses import title
-from stubresponses import search_results, test_two_search_results
-
-
 
 
 class ViewPropertyTestCase(unittest.TestCase):
