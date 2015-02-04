@@ -45,7 +45,7 @@ def get_query_parts(query_dict):
 @app.route('/properties/<postcode>/<street_paon_saon>', methods=['GET'])
 def get_tasks(postcode, street_paon_saon):
     if postcode == 'N1BLT' and street_paon_saon == 'imaginary-street':
-      abort(404)
+        abort(404)
     parts = street_paon_saon.upper().split('_')
     if len(parts) not in [2, 3]:
         raise ValueError('Could not split combined street, PAON and SAON into '
