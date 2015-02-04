@@ -2,4 +2,4 @@
 
 source ./environment.sh
 
-python ./service/app.py
+python run_dev.py

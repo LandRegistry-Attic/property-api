@@ -1,9 +1,9 @@
 #!/usr/bin/env python
-import os
+from service import app
 from flask import Flask, jsonify
 import requests
 
-app = Flask(__name__)
+ppi_api = app.config['PPI_END_POINT']
 
 
 # see http://landregistry.data.gov.uk/app/hpi/qonsole
@@ -57,7 +57,7 @@ def get_tasks(postcode, street_paon_saon):
         query_dict['saon'] = parts[2]
 
     query = PPI_QUERY_TMPL.format(get_query_parts(query_dict))
-    ppi_url = os.environ.get('PPI_END_POINT');
+    ppi_url = ppi_api
     resp = requests.post(ppi_url, data={'output': 'json', 'query': query})
 
     sale_list = resp.json()['results']['bindings']
