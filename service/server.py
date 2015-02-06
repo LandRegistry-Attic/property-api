@@ -1,8 +1,15 @@
 #!/usr/bin/env python
-from service import app
 import os
 from flask import Flask, jsonify, abort
 import requests
+from sqlalchemy import Table, Column, String, MetaData, create_engine, Integer
+from sqlalchemy.inspection import inspect
+from sqlalchemy.sql import select
+import pg8000
+
+from service.models import AddressBase
+from service import app
+
 
 ppi_api = app.config['PPI_END_POINT']
 
@@ -32,6 +39,11 @@ ORDER BY desc(?date) limit 1
 """
 
 
+@app.errorhandler(404)
+def page_not_found(e):
+    return jsonify(error=404, text=str(e)), 404
+
+
 def get_property_type(url):
     return url.partition('http://landregistry.data.gov.uk/def/common/')[2]
 
@@ -43,7 +55,7 @@ def get_query_parts(query_dict):
 
 
 @app.route('/properties/<postcode>/<street_paon_saon>', methods=['GET'])
-def get_tasks(postcode, street_paon_saon):
+def get_property(postcode, street_paon_saon):
     if postcode == 'N1BLT' and street_paon_saon == 'imaginary-street':
         abort(404)
     parts = street_paon_saon.upper().split('_')
@@ -59,6 +71,33 @@ def get_tasks(postcode, street_paon_saon):
     if len(parts) == 3:
         query_dict['saon'] = parts[2]
 
+    latest_sale = get_ppi(postcode, query_dict)
+
+    address_dict = read_from_db(postcode, query_dict)
+
+    # try and get buildingNumber, otherwise buildingName
+    paon = str(address_dict.get('buildingNumber', None)) or \
+        address_dict.get('buildingName', '').rstrip()
+    saon = address_dict.get('subBuildingName', '').rstrip()
+
+    result = {
+        'saon': saon,
+        'paon': paon,
+        'street': address_dict.get('throughfareName', '').rstrip(),
+        'town': address_dict.get('postTown', '').rstrip(),
+        'county': address_dict.get('dependentLocality', '').rstrip(),
+        'postcode': address_dict.get('postcode', '').rstrip(),
+        'amount': latest_sale.get('amount', ''),
+        'date': latest_sale.get('date', ''),
+        'property_type':
+            get_property_type(latest_sale.get('property_type', '')),
+        'coordinates' : {'latitude': 99, 'longitude': 99},
+    }
+
+    return jsonify(result)
+
+
+def get_ppi(postcode, query_dict):
     query = PPI_QUERY_TMPL.format(get_query_parts(query_dict))
     ppi_url = ppi_api
     resp = requests.post(ppi_url, data={'output': 'json', 'query': query})
@@ -66,27 +105,26 @@ def get_tasks(postcode, street_paon_saon):
     sale_list = resp.json()['results']['bindings']
 
     if len(sale_list) == 0:
-        return jsonify({'message': 'No record found.'})
-    elif len(sale_list) > 1:
-        return jsonify({'message': 'More then one record found.'})
+        return {}
 
-    latest_sale = sale_list[0]
+    latest_sale = {k: v for k, v['value'] in sale_list[0].items()}
+    return latest_sale
 
-    result = {
-        'saon': 'saon goes here',
-        'paon': 'paon goes here',
-        'street': 'street goes here',
-        'town': 'town goes here',
-        'county': 'county goes here',
-        'postcode': 'postcode goes here',
-        'amount': latest_sale['amount']['value'],
-        'date': latest_sale['date']['value'],
-        'property_type':
-            get_property_type(latest_sale['property_type']['value']),
-        'coordinates' : {'latitude': 99, 'longitude': 99},
-    }
 
-    return jsonify(result)
+def serialize(rec):
+    return {key: getattr(rec, key) for key in inspect(rec).attrs.keys()}
+
+
+def read_from_db(postcode, query_dict):
+    results = AddressBase.query.filter_by(postcode=postcode)
+
+    nof_results = results.count()
+    if nof_results == 0:
+        abort(404)
+    elif nof_results > 1:
+        raise NotImplementedError('More than one record found')
+
+    return serialize(results.first())
 
 
 if __name__ == '__main__':
