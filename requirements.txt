@@ -4,3 +4,6 @@ MarkupSafe==0.23
 Werkzeug==0.9.6
 itsdangerous==0.24
 requests==2.5.1
+sqlalchemy==0.9.8
+Flask-SQLAlchemy==2.0
+pg8000==1.10.1
