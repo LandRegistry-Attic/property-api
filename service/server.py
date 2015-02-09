@@ -107,7 +107,7 @@ def get_ppi(postcode, query_dict):
     if len(sale_list) == 0:
         return {}
 
-    latest_sale = {k: v for k, v['value'] in sale_list[0].items()}
+    latest_sale = {k: v['value'] for k, v in sale_list[0].items()}
     return latest_sale
 
 
