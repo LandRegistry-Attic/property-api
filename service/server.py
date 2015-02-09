@@ -58,22 +58,14 @@ def get_query_parts(query_dict):
 def get_property(postcode, street_paon_saon):
     if postcode == 'N1BLT' and street_paon_saon == 'imaginary-street':
         abort(404)
-    parts = street_paon_saon.upper().split('_')
-    if len(parts) not in [2, 3]:
+    query_list = [postcode] + street_paon_saon.split('_')
+    if len(query_list) not in [3, 4]:
         raise ValueError('Could not split combined street, PAON and SAON into '
                          'respective parts. Expected street_PAON_SAON.')
 
-    query_dict = {
-        'postcode': postcode.upper(),
-        'street': parts[0],
-        'paon': parts[1],
-    }
-    if len(parts) == 3:
-        query_dict['saon'] = parts[2]
+    latest_sale = get_ppi(query_list)
 
-    latest_sale = get_ppi(postcode, query_dict)
-
-    address_dict = read_from_db(postcode, query_dict)
+    address_dict = read_from_db(query_list)
 
     # try and get buildingNumber, otherwise buildingName
     paon = str(address_dict.get('buildingNumber', None)) or \
@@ -91,13 +83,24 @@ def get_property(postcode, street_paon_saon):
         'date': latest_sale.get('date', ''),
         'property_type':
             get_property_type(latest_sale.get('property_type', '')),
-        'coordinates' : {'latitude': 99, 'longitude': 99},
+        'coordinates' : {
+            'latitude': address_dict.get('positionY', None),
+            'longitude': address_dict.get('positionX', None),
+        },
     }
 
     return jsonify(result)
 
 
-def get_ppi(postcode, query_dict):
+def get_ppi(query_list):
+    query_dict = {
+        'postcode': query_list[0].upper(),
+        'street': query_list[1].upper(),
+        'paon': query_list[2].upper(),
+    }
+    if len(query_list) == 4:
+        query_dict['saon'] = query_list[3].upper()
+
     query = PPI_QUERY_TMPL.format(get_query_parts(query_dict))
     ppi_url = ppi_api
     resp = requests.post(ppi_url, data={'output': 'json', 'query': query})
@@ -115,8 +118,14 @@ def serialize(rec):
     return {key: getattr(rec, key) for key in inspect(rec).attrs.keys()}
 
 
-def read_from_db(postcode, query_dict):
-    results = AddressBase.query.filter_by(postcode=postcode)
+def read_from_db(query_list):
+    results = AddressBase.query.\
+        filter(AddressBase.postcode == query_list[0]).\
+        filter(AddressBase.throughfareName == query_list[1]).\
+        filter((AddressBase.buildingNumber == query_list[2])
+               | (AddressBase.buildingName == query_list[2]))
+    if len(query_list) == 4:
+        results = results.filter(AddressBase.subBuildingName == query_list[3])
 
     nof_results = results.count()
     if nof_results == 0:
