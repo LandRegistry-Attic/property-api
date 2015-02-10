@@ -4,7 +4,7 @@ from flask import Flask, jsonify, abort
 import requests
 from sqlalchemy import Table, Column, String, MetaData, create_engine, Integer
 from sqlalchemy.inspection import inspect
-from sqlalchemy.sql import select
+from sqlalchemy.sql import select, or_
 import pg8000
 
 from service.models import AddressBase
@@ -50,63 +50,32 @@ def page_not_found(e):
 
 
 def get_property_type(url):
+    # Currently the property type is the same as the end of the URL
     return url.partition('http://landregistry.data.gov.uk/def/common/')[2]
 
 
-def get_query_parts(query_dict):
-    query_tmpl = '  ?addr lrcommon:{} "{}"^^xsd:string.'
-    query_lines = [query_tmpl.format(k, v) for k, v in query_dict.items()]
-    return '\n'.join(query_lines)
-
-
-@app.route('/properties/<postcode>/<street_paon_saon>', methods=['GET'])
-def get_property(postcode, street_paon_saon):
-    if postcode == 'N1BLT' and street_paon_saon == 'imaginary-street':
-        abort(404)
-    query_list = [postcode] + street_paon_saon.split('_')
-    if len(query_list) not in [3, 4]:
+def check_field_vals(field_vals):
+    if len(field_vals) not in [3, 4]:
         raise ValueError('Could not split combined street, PAON and SAON into '
                          'respective parts. Expected street_PAON_SAON.')
 
-    latest_sale = get_ppi(query_list)
 
-    address_dict = read_from_db(query_list)
-
-    # try and get buildingNumber, otherwise buildingName
-    paon = str(address_dict.get('buildingNumber', None)) or \
-        address_dict.get('buildingName', '').rstrip()
-    saon = address_dict.get('subBuildingName', '').rstrip()
-
-    result = {
-        'saon': saon,
-        'paon': paon,
-        'street': address_dict.get('throughfareName', '').rstrip(),
-        'town': address_dict.get('postTown', '').rstrip(),
-        'county': address_dict.get('dependentLocality', '').rstrip(),
-        'postcode': address_dict.get('postcode', '').rstrip(),
-        'amount': latest_sale.get('amount', ''),
-        'date': latest_sale.get('date', ''),
-        'property_type':
-            get_property_type(latest_sale.get('property_type', '')),
-        'coordinates' : {
-            'latitude': address_dict.get('positionY', None),
-            'longitude': address_dict.get('positionX', None),
-        },
-    }
-
-    return jsonify(result)
-
-
-def get_ppi(query_list):
+def get_query_dict(field_vals):
     query_dict = {
-        'postcode': query_list[0].upper(),
-        'street': query_list[1].upper(),
-        'paon': query_list[2].upper(),
+        'postcode': field_vals[0],
+        'street': field_vals[1],
+        'paon': field_vals[2],
     }
-    if len(query_list) == 4:
-        query_dict['saon'] = query_list[3].upper()
+    if len(field_vals) == 4:
+        query_dict['saon'] = field_vals[3]
+    return query_dict
 
-    query = PPI_QUERY_TMPL.format(get_query_parts(query_dict))
+
+def get_latest_sale(query_dict):
+    kv_tmpl = '  ?addr lrcommon:{} "{}"^^xsd:string.'
+    kv_lines = [kv_tmpl.format(k, v.upper()) for k, v in query_dict.items()]
+
+    query = PPI_QUERY_TMPL.format('\n'.join(kv_lines))
     ppi_url = ppi_api
     resp = requests.post(ppi_url, data={'output': 'json', 'query': query})
 
@@ -123,14 +92,15 @@ def serialize(rec):
     return {key: getattr(rec, key) for key in inspect(rec).attrs.keys()}
 
 
-def read_from_db(query_list):
-    results = AddressBase.query.\
-        filter(AddressBase.postcode == query_list[0]).\
-        filter(AddressBase.throughfareName == query_list[1]).\
-        filter((AddressBase.buildingNumber == query_list[2])
-               | (AddressBase.buildingName == query_list[2]))
-    if len(query_list) == 4:
-        results = results.filter(AddressBase.subBuildingName == query_list[3])
+def get_property_address(query_dict):
+    results = (AddressBase.query.
+        filter_by(postcode=query_dict['postcode']).
+        filter_by(throughfareName=query_dict['street']).
+        filter(or_(
+            AddressBase.buildingNumber == query_dict['paon'],
+            AddressBase.buildingName == query_dict['paon'])))
+    if 'saon' in query_dict:
+        results = results.filter_by(subBuildingName=query_dict['saon'])
 
     nof_results = results.count()
     if nof_results == 0:
@@ -139,6 +109,48 @@ def read_from_db(query_list):
         raise NotImplementedError('More than one record found')
 
     return serialize(results.first())
+
+
+def create_json(address_dict, latest_sale):
+    # try and get buildingNumber, otherwise buildingName
+    paon = (str(address_dict.get('buildingNumber', None)) or
+        address_dict.get('buildingName', '').rstrip())
+
+    result = {
+        'saon': address_dict.get('subBuildingName', '').rstrip(),
+        'paon': paon,
+        'street': address_dict.get('throughfareName', '').rstrip(),
+        'town': address_dict.get('postTown', '').rstrip(),
+        'county': address_dict.get('dependentLocality', '').rstrip(),
+        'postcode': address_dict.get('postcode', '').rstrip(),
+        'amount': latest_sale.get('amount', ''),
+        'date': latest_sale.get('date', ''),
+        'property_type':
+            get_property_type(latest_sale.get('property_type', '')),
+        'coordinates' : {
+            'latitude': address_dict.get('positionY', None),
+            'longitude': address_dict.get('positionX', None),
+        },
+    }
+    return result
+
+
+@app.route('/properties/<postcode>/<street_paon_saon>', methods=['GET'])
+def get_property(postcode, street_paon_saon):
+    # TODO: remove this
+    if postcode == 'N1BLT' and street_paon_saon == 'imaginary-street':
+        abort(404)
+
+    field_vals = [postcode] + street_paon_saon.split('_')
+    check_field_vals(field_vals)
+    query_dict = get_query_dict(field_vals)
+
+    latest_sale = get_latest_sale(query_dict)
+    address_dict = get_property_address(query_dict)
+
+    result = create_json(address_dict, latest_sale)
+
+    return jsonify(result)
 
 
 if __name__ == '__main__':
