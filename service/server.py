@@ -134,14 +134,14 @@ def get_property(postcode, street_paon_saon):
     check_field_vals(field_vals)
     query_dict = get_query_dict(field_vals)
 
-    latest_sale = get_latest_sale(query_dict)
-
     address_recs = get_property_address(query_dict)
     nof_results = len(address_recs)
     if nof_results == 0:
         abort(404)
     elif nof_results > 1:
         raise NotImplementedError('More than one record found')
+
+    latest_sale = get_latest_sale(query_dict)
 
     result = create_json(address_recs[0], latest_sale)
 
