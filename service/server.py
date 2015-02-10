@@ -88,10 +88,6 @@ def get_latest_sale(query_dict):
     return latest_sale
 
 
-def serialize(rec):
-    return {key: getattr(rec, key) for key in inspect(rec).attrs.keys()}
-
-
 def get_property_address(query_dict):
     results = (AddressBase.query.
         filter_by(postcode=query_dict['postcode']).
@@ -108,28 +104,27 @@ def get_property_address(query_dict):
     elif nof_results > 1:
         raise NotImplementedError('More than one record found')
 
-    return serialize(results.first())
+    return results.first()
 
 
-def create_json(address_dict, latest_sale):
+def create_json(address_rec, latest_sale):
     # try and get buildingNumber, otherwise buildingName
-    paon = (str(address_dict.get('buildingNumber', None)) or
-        address_dict.get('buildingName', '').rstrip())
+    paon = address_rec.buildingNumber or address_rec.buildingName.rstrip()
 
     result = {
-        'saon': address_dict.get('subBuildingName', '').rstrip(),
+        'saon': address_rec.subBuildingName.rstrip(),
         'paon': paon,
-        'street': address_dict.get('throughfareName', '').rstrip(),
-        'town': address_dict.get('postTown', '').rstrip(),
-        'county': address_dict.get('dependentLocality', '').rstrip(),
-        'postcode': address_dict.get('postcode', '').rstrip(),
+        'street': address_rec.throughfareName.rstrip(),
+        'town': address_rec.postTown.rstrip(),
+        'county': address_rec.dependentLocality.rstrip(),
+        'postcode': address_rec.postcode.rstrip(),
         'amount': latest_sale.get('amount', ''),
         'date': latest_sale.get('date', ''),
         'property_type':
             get_property_type(latest_sale.get('property_type', '')),
         'coordinates' : {
-            'latitude': address_dict.get('positionY', None),
-            'longitude': address_dict.get('positionX', None),
+            'latitude': address_rec.positionY,
+            'longitude': address_rec.positionX,
         },
     }
     return result
@@ -146,9 +141,9 @@ def get_property(postcode, street_paon_saon):
     query_dict = get_query_dict(field_vals)
 
     latest_sale = get_latest_sale(query_dict)
-    address_dict = get_property_address(query_dict)
+    address_rec = get_property_address(query_dict)
 
-    result = create_json(address_dict, latest_sale)
+    result = create_json(address_rec, latest_sale)
 
     return jsonify(result)
 
