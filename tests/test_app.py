@@ -81,6 +81,9 @@ double_PPI_response = FakeResponse(b'''{
    }'''
 )
 
+address_split_error_message = 'Could not split combined street, PAON and SAON ' + \
+                              'into respective parts. Expected street_PAON_SAON.'
+
 
 class ViewPropertyTestCase(unittest.TestCase):
 
@@ -152,9 +155,16 @@ class ViewPropertyTestCase(unittest.TestCase):
         self.assertTrue(str('"amount": ""') in str(response.data))
         self.assertTrue(str('"date": ""') in str(response.data))        
 
-
-    def test_unable_to_split(self):
+    def test_get_property_returns_404_response_when_no_address_delimiters(self):
         search_query = "PL6%208RU/PATTINSON%20DRIVE100"
         response = self.app.get('/properties/%s' % search_query)
 
-        self.assertTrue(str('Could not split combined street') in str(response.data))
+        self.assertEqual(response.status_code, 404)
+        self.assertIn(address_split_error_message, str(response.data))
+
+    def test_get_property_returns_404_response_when_too_many_address_delimiters(self):
+        search_query = "PL6%208RU/PAT_TIN_SON_RIVE100"
+        response = self.app.get('/properties/%s' % search_query)
+
+        self.assertEqual(response.status_code, 404)
+        self.assertIn(address_split_error_message, str(response.data))

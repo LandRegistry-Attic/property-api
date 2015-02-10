@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import os
-from flask import Flask, jsonify, abort
+from flask import Flask, jsonify, abort, make_response
 import requests
 from sqlalchemy import Table, Column, String, MetaData, create_engine, Integer
 from sqlalchemy.inspection import inspect
@@ -56,8 +56,8 @@ def get_property_type(url):
 
 def check_field_vals(field_vals):
     if len(field_vals) not in [3, 4]:
-        raise ValueError('Could not split combined street, PAON and SAON into '
-                         'respective parts. Expected street_PAON_SAON.')
+        abort(make_response('Could not split combined street, PAON and SAON '
+            'into respective parts. Expected street_PAON_SAON.', 404))
 
 
 def get_query_dict(field_vals):
