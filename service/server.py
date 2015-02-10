@@ -39,6 +39,11 @@ ORDER BY desc(?date) limit 1
 """
 
 
+@app.errorhandler(Exception)
+def exception_handler(e):
+  return jsonify(error=500, text='{}'.format(e)), 500
+
+
 @app.errorhandler(404)
 def page_not_found(e):
     return jsonify(error=404, text=str(e)), 404
