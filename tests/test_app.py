@@ -32,6 +32,18 @@ multiple_DB_results = [
 
 # see http://landregistry.data.gov.uk/app/hpi/qonsole
 
+empty_PPI_response = FakeResponse(b'''{
+     "head": {
+       "vars": [ "amount" , "date" , "property_type" ]
+     } ,
+     "results": {
+       "bindings": [
+
+       ]
+     }
+   }'''
+)
+
 single_PPI_response = FakeResponse(b'''{
      "head": {
        "vars": [ "amount" , "date" , "property_type" ]
@@ -55,13 +67,13 @@ double_PPI_response = FakeResponse(b'''{
      "results": {
        "bindings": [
          {
-           "amount": { "datatype": "http://www.w3.org/2001/XMLSchema#integer" , "type": "typed-literal" , "value": "100000" } ,
-           "date": { "datatype": "http://www.w3.org/2001/XMLSchema#date" , "type": "typed-literal" , "value": "2003-04-17" } ,
+           "amount": { "datatype": "http://www.w3.org/2001/XMLSchema#integer" , "type": "typed-literal" , "value": "100001" } ,
+           "date": { "datatype": "http://www.w3.org/2001/XMLSchema#date" , "type": "typed-literal" , "value": "2003-04-18" } ,
            "property_type": { "type": "uri" , "value": "http://landregistry.data.gov.uk/def/common/semi-detached" }
          },
          {
-           "amount": { "datatype": "http://www.w3.org/2001/XMLSchema#integer" , "type": "typed-literal" , "value": "100001" } ,
-           "date": { "datatype": "http://www.w3.org/2001/XMLSchema#date" , "type": "typed-literal" , "value": "2003-04-18" } ,
+           "amount": { "datatype": "http://www.w3.org/2001/XMLSchema#integer" , "type": "typed-literal" , "value": "100000" } ,
+           "date": { "datatype": "http://www.w3.org/2001/XMLSchema#date" , "type": "typed-literal" , "value": "2003-04-17" } ,
            "property_type": { "type": "uri" , "value": "http://landregistry.data.gov.uk/def/common/semi-detached" }
          }
        ]
@@ -89,7 +101,7 @@ class ViewPropertyTestCase(unittest.TestCase):
 
     @mock.patch('service.server.get_property_address', return_value=one_DB_result)
     @mock.patch('requests.post')
-    def test_search_results_calls_search_api(self, mock_post, mock_get_property_address):
+    def test_get_property_calls_search_api(self, mock_post, mock_get_property_address):
         search_query = "PL6%208RU/PATTINSON%20DRIVE_100"
 
         query_dict = {
@@ -108,19 +120,38 @@ class ViewPropertyTestCase(unittest.TestCase):
 
     @mock.patch('service.server.get_property_address', return_value=one_DB_result)
     @mock.patch('requests.post', return_value=single_PPI_response)
-    def test_single_result(self, mock_post, mock_get_property_address):
+    def test_get_property_returns_data_from_PPI_API_when_single_result(self, mock_post, mock_get_property_address):
         search_query = "PL2%201AD/ALBERT%20ROAD_10_FLAT%202"
         response = self.app.get('/properties/%s' % search_query)
 
-        self.assertTrue(str('100000') in str(response.data))
-        self.assertTrue(str('2003-04-17') in str(response.data))
+        self.assertTrue(str('"amount": "100000"') in str(response.data))
+        self.assertTrue(str('"date": "2003-04-17"') in str(response.data))
+
+    @mock.patch('service.server.get_property_address', return_value=one_DB_result)
+    @mock.patch('requests.post', return_value=double_PPI_response)
+    def test_get_property_returns_first_PPI_API_result_when_more_than_one(self, mock_post, mock_get_property_address):
+        search_query = "PL2%201AD/ALBERT%20ROAD_10_FLAT%202"
+        response = self.app.get('/properties/%s' % search_query)
+
+        self.assertTrue(str('"amount": "100001"') in str(response.data))
+        self.assertTrue(str('"date": "2003-04-18"') in str(response.data))
 
     @mock.patch('service.server.get_property_address', return_value=multiple_DB_results)
-    def test_two_result(self, mock_get_property_address):
+    def test_get_property_returns_500_error_when_the_DB_returns_two_result(self, mock_get_property_address):
         search_query = "PL6%208RU/PATTINSON%20DRIVE_100"
         response = self.app.get('/properties/%s' % search_query)
 
         self.assertTrue(str('More than one record found') in str(response.data))
+
+    @mock.patch('service.server.get_property_address', return_value=one_DB_result)
+    @mock.patch('requests.post', return_value=empty_PPI_response)
+    def test_get_property_returns_no_PPI_data_when_PPI_API_returns_empty_result(self, mock_post, mock_get_property_address):
+        search_query = "PL2%201AD/ALBERT%20ROAD_10_FLAT%202"
+        response = self.app.get('/properties/%s' % search_query)
+
+        self.assertTrue(str('"amount": ""') in str(response.data))
+        self.assertTrue(str('"date": ""') in str(response.data))        
+
 
     def test_unable_to_split(self):
         search_query = "PL6%208RU/PATTINSON%20DRIVE100"
