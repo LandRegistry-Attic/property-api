@@ -1,19 +1,38 @@
-from service.server import app, get_query_parts
-import unittest
+from service.server import app
+
+from collections import namedtuple
 import json
-
-
 import mock
-import unittest
 import requests
 import responses
+import unittest
+
 
 from .fake_response import FakeResponse
+
+AddressBase = namedtuple('AddressBase',
+                         ['subBuildingName', 'buildingNumber', 'buildingName',
+                          'throughfareName', 'postTown', 'dependentLocality',
+                          'postcode', 'positionY', 'positionX'])
+one_DB_result = [
+    AddressBase('subBuildingName', 'buildingNumber', 'buildingName',
+                'throughfareName', 'postTown', 'dependentLocality',
+                'postcode', 'positionY', 'positionX'),
+]
+
+multiple_DB_results = [
+    AddressBase('subBuildingName', 'buildingNumber', 'buildingName',
+                'throughfareName', 'postTown', 'dependentLocality',
+                'postcode', 'positionY', 'positionX'),
+    AddressBase('subBuildingName', 'buildingNumber', 'buildingName',
+                'throughfareName', 'postTown', 'dependentLocality',
+                'postcode', 'positionY', 'positionX'),
+]
 
 
 # see http://landregistry.data.gov.uk/app/hpi/qonsole
 
-single_response = FakeResponse(b'''{
+single_PPI_response = FakeResponse(b'''{
      "head": {
        "vars": [ "amount" , "date" , "property_type" ]
      } ,
@@ -29,7 +48,7 @@ single_response = FakeResponse(b'''{
    }'''
 )
 
-double_response = FakeResponse(b'''{
+double_PPI_response = FakeResponse(b'''{
      "head": {
        "vars": [ "amount" , "date" , "property_type" ]
      } ,
@@ -68,8 +87,9 @@ class ViewPropertyTestCase(unittest.TestCase):
         response = self.app.get('/properties/%s' % street_address_url)
         assert response.status_code == 404
 
+    @mock.patch('service.server.get_property_address', return_value=one_DB_result)
     @mock.patch('requests.post')
-    def test_search_results_calls_search_api(self, mock_post):
+    def test_search_results_calls_search_api(self, mock_post, mock_get_property_address):
         search_query = "PL6%208RU/PATTINSON%20DRIVE_100"
 
         query_dict = {
@@ -86,26 +106,24 @@ class ViewPropertyTestCase(unittest.TestCase):
         self.assertTrue(str(query_dict['street']) in str(kwargs['data']))
         self.assertTrue(str(query_dict['paon']) in str(kwargs['data']))
 
-    @mock.patch('requests.post', return_value=single_response)
-    def test_single_result(self, mock_post):
+    @mock.patch('service.server.get_property_address', return_value=one_DB_result)
+    @mock.patch('requests.post', return_value=single_PPI_response)
+    def test_single_result(self, mock_post, mock_get_property_address):
         search_query = "PL2%201AD/ALBERT%20ROAD_10_FLAT%202"
         response = self.app.get('/properties/%s' % search_query)
 
         self.assertTrue(str('100000') in str(response.data))
         self.assertTrue(str('2003-04-17') in str(response.data))
 
-    @mock.patch('requests.post', return_value=double_response)
-    def test_two_result(self, mock_post):
+    @mock.patch('service.server.get_property_address', return_value=multiple_DB_results)
+    def test_two_result(self, mock_get_property_address):
         search_query = "PL6%208RU/PATTINSON%20DRIVE_100"
         response = self.app.get('/properties/%s' % search_query)
 
-        self.assertTrue(str('More then one record found.') in str(response.data))
+        self.assertTrue(str('More than one record found') in str(response.data))
 
-    @mock.patch('requests.post', return_value=double_response)
-    def test_unable_to_split(self, mock_post):
+    def test_unable_to_split(self):
         search_query = "PL6%208RU/PATTINSON%20DRIVE100"
+        response = self.app.get('/properties/%s' % search_query)
 
-        with self.assertRaises(Exception) as context:
-            response = self.app.get('/properties/%s' % search_query)
-
-        self.assertTrue(str('Could not split combined street') in str(context.exception))
+        self.assertTrue(str('Could not split combined street') in str(response.data))
