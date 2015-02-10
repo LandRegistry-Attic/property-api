@@ -98,13 +98,7 @@ def get_property_address(query_dict):
     if 'saon' in query_dict:
         results = results.filter_by(subBuildingName=query_dict['saon'])
 
-    nof_results = results.count()
-    if nof_results == 0:
-        abort(404)
-    elif nof_results > 1:
-        raise NotImplementedError('More than one record found')
-
-    return results.first()
+    return results.all()
 
 
 def create_json(address_rec, latest_sale):
@@ -141,9 +135,15 @@ def get_property(postcode, street_paon_saon):
     query_dict = get_query_dict(field_vals)
 
     latest_sale = get_latest_sale(query_dict)
-    address_rec = get_property_address(query_dict)
 
-    result = create_json(address_rec, latest_sale)
+    address_recs = get_property_address(query_dict)
+    nof_results = len(address_recs)
+    if nof_results == 0:
+        abort(404)
+    elif nof_results > 1:
+        raise NotImplementedError('More than one record found')
+
+    result = create_json(address_recs[0], latest_sale)
 
     return jsonify(result)
 
