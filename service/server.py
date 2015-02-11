@@ -91,7 +91,7 @@ def get_latest_sale(query_dict):
 def get_property_address(query_dict):
     results = (AddressBase.query.
         filter_by(postcode=query_dict['postcode']).
-        filter_by(throughfareName=query_dict['street']).
+        filter_by(thoroughfareName=query_dict['street']).
         filter(or_(
             AddressBase.buildingNumber == query_dict['paon'],
             AddressBase.buildingName == query_dict['paon'])))
@@ -108,7 +108,7 @@ def create_json(address_rec, latest_sale):
     result = {
         'saon': address_rec.subBuildingName.rstrip(),
         'paon': paon,
-        'street': address_rec.throughfareName.rstrip(),
+        'street': address_rec.thoroughfareName.rstrip(),
         'town': address_rec.postTown.rstrip(),
         'county': address_rec.dependentLocality.rstrip(),
         'postcode': address_rec.postcode.rstrip(),
