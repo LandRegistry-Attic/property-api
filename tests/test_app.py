@@ -194,8 +194,8 @@ class ViewPropertyTestCase(unittest.TestCase):
         search_query = "PL2%201AD/ALBERT%20ROAD_10_FLAT%202"
         response = self.app.get('/properties/%s' % search_query)
 
-        self.assertTrue(str('"amount": "100000"') in str(response.data))
-        self.assertTrue(str('"date": "2003-04-17"') in str(response.data))
+        self.assertTrue('"amount": "100000"' in str(response.data))
+        self.assertTrue('"date": "2003-04-17"' in str(response.data))
 
     @mock.patch('service.server.get_property_address', return_value=one_DB_result)
     @mock.patch('requests.post', return_value=double_PPI_response)
@@ -203,15 +203,15 @@ class ViewPropertyTestCase(unittest.TestCase):
         search_query = "PL2%201AD/ALBERT%20ROAD_10_FLAT%202"
         response = self.app.get('/properties/%s' % search_query)
 
-        self.assertTrue(str('"amount": "100001"') in str(response.data))
-        self.assertTrue(str('"date": "2003-04-18"') in str(response.data))
+        self.assertTrue('"amount": "100001"' in str(response.data))
+        self.assertTrue('"date": "2003-04-18"' in str(response.data))
 
     @mock.patch('service.server.get_property_address', return_value=multiple_DB_results)
     def test_get_property_returns_500_error_when_the_DB_returns_two_result(self, mock_get_property_address):
         search_query = "PL6%208RU/PATTINSON%20DRIVE_100"
         response = self.app.get('/properties/%s' % search_query)
 
-        self.assertTrue(str('More than one record found') in str(response.data))
+        self.assertTrue('More than one record found' in str(response.data))
 
     @mock.patch('service.server.get_property_address', return_value=one_DB_result)
     @mock.patch('requests.post', return_value=empty_PPI_response)
@@ -219,8 +219,8 @@ class ViewPropertyTestCase(unittest.TestCase):
         search_query = "PL2%201AD/ALBERT%20ROAD_10_FLAT%202"
         response = self.app.get('/properties/%s' % search_query)
 
-        self.assertTrue(str('"amount": ""') in str(response.data))
-        self.assertTrue(str('"date": ""') in str(response.data))
+        self.assertTrue('"amount": ""' in str(response.data))
+        self.assertTrue('"date": ""' in str(response.data))
 
     def test_get_property_returns_404_response_when_no_address_delimiters(self):
         search_query = "PL6%208RU/PATTINSON%20DRIVE100"
