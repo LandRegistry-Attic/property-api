@@ -1,8 +1,10 @@
-from service.server import app
+from service.server import app, get_property_address, AddressBase
 
 from collections import namedtuple
 import json
 import mock
+from mock import call
+from sqlalchemy.sql import or_
 import requests
 import responses
 import unittest
@@ -10,24 +12,29 @@ import unittest
 
 from .fake_response import FakeResponse
 
-AddressBase = namedtuple('AddressBase',
-                         ['subBuildingName', 'buildingNumber', 'buildingName',
-                          'throughfareName', 'postTown', 'dependentLocality',
-                          'postcode', 'positionY', 'positionX'])
+FakeAddressBase = namedtuple('AddressBase',
+                             ['subBuildingName', 'buildingNumber', 'buildingName',
+                              'throughfareName', 'postTown', 'dependentLocality',
+                              'postcode', 'positionY', 'positionX'])
+
+zero_DB_results = []
+
 one_DB_result = [
-    AddressBase('subBuildingName', 'buildingNumber', 'buildingName',
-                'throughfareName', 'postTown', 'dependentLocality',
-                'postcode', 'positionY', 'positionX'),
+    FakeAddressBase('subBuildingName', 'buildingNumber', 'buildingName',
+                    'throughfareName', 'postTown', 'dependentLocality',
+                    'postcode', 'positionY', 'positionX'),
 ]
 
 multiple_DB_results = [
-    AddressBase('subBuildingName', 'buildingNumber', 'buildingName',
-                'throughfareName', 'postTown', 'dependentLocality',
-                'postcode', 'positionY', 'positionX'),
-    AddressBase('subBuildingName', 'buildingNumber', 'buildingName',
-                'throughfareName', 'postTown', 'dependentLocality',
-                'postcode', 'positionY', 'positionX'),
+    FakeAddressBase('subBuildingName', 'buildingNumber', 'buildingName',
+                    'throughfareName', 'postTown', 'dependentLocality',
+                    'postcode', 'positionY', 'positionX'),
+    FakeAddressBase('subBuildingName', 'buildingNumber', 'buildingName',
+                    'throughfareName', 'postTown', 'dependentLocality',
+                    'postcode', 'positionY', 'positionX'),
 ]
+
+FakeQuery = namedtuple('Query', ['all'])
 
 
 # see http://landregistry.data.gov.uk/app/hpi/qonsole
@@ -104,12 +111,72 @@ class ViewPropertyTestCase(unittest.TestCase):
 
     @mock.patch('service.server.get_property_address', return_value=one_DB_result)
     @mock.patch('requests.post')
-    def test_get_property_calls_search_api(self, mock_post, mock_get_property_address):
+    def test_get_property_address_called_correctly(self, mock_post, mock_get_property_address):
         search_query = "PL6%208RU/PATTINSON%20DRIVE_100"
 
         query_dict = {
             'postcode': 'PL6 8RU',
-            'street': 'ATTINSON DRIVE',
+            'street': 'PATTINSON DRIVE',
+            'paon': '100',
+        }
+
+        response = self.app.get('/properties/%s' % search_query)
+
+        args, kwargs = mock_get_property_address.call_args
+
+        self.assertEqual(args, (query_dict, ))
+        self.assertEqual(kwargs, {})
+
+    @mock.patch('service.server.AddressBase.query.filter_by')
+    @mock.patch('service.server.AddressBase.query', return_value=FakeQuery(one_DB_result))
+    def test_get_property_address_called_correctly(self, mock_query, mock_filter_by):
+        query_dict = {
+            'postcode': 'PL6 8RU',
+            'street': 'PATTINSON DRIVE',
+            'paon': '100',
+        }
+
+        get_property_address(query_dict)
+        mock_filter_by.assert_has_calls(call(postcode=query_dict['postcode']))
+        mock_filter_by.assert_has_calls(call(throughfareName=query_dict['street']))
+
+        # TODO: is there a nicer way to do this?
+        boolean_clauses = mock_filter_by.mock_calls[2][1][0].get_children()
+        self.assertEqual(boolean_clauses[0].left.name, 'buildingNumber')
+        self.assertEqual(boolean_clauses[0].right.value, query_dict['paon'])
+        self.assertEqual(boolean_clauses[1].left.name, 'buildingName')
+        self.assertEqual(boolean_clauses[1].right.value, query_dict['paon'])
+
+        self.assertEqual(len(mock_filter_by.mock_calls), 4)
+
+    @mock.patch('service.server.AddressBase.query.filter_by')
+    @mock.patch('service.server.AddressBase.query', return_value=FakeQuery(one_DB_result))
+    def test_get_property_address_with_saon_filters_by_subBuildingName(self, mock_query, mock_filter_by):
+        query_dict = {
+            'postcode': 'PL6 8RU',
+            'street': 'PATTINSON DRIVE',
+            'paon': '100',
+            'saon': 'Flat A',
+        }
+
+        get_property_address(query_dict)
+        mock_filter_by.assert_has_calls(call(subBuildingName=query_dict['saon']))
+
+    @mock.patch('service.server.AddressBase.query', return_value=FakeQuery(zero_DB_results))
+    def test_get_property_address_returns_404_when_no_results_found(self, mock_query):
+        search_query = "ZZ2%201ZZ/ALBERT%20ROAD_10_FLAT%202"
+        response = self.app.get('/properties/%s' % search_query)
+
+        self.assertEqual(response.status_code, 404)
+
+    @mock.patch('service.server.get_property_address', return_value=one_DB_result)
+    @mock.patch('requests.post')
+    def test_search_results_calls_search_api(self, mock_post, mock_get_property_address):
+        search_query = "PL6%208RU/PATTINSON%20DRIVE_100"
+
+        query_dict = {
+            'postcode': 'PL6 8RU',
+            'street': 'PATTINSON DRIVE',
             'paon': '100',
         }
 
@@ -153,7 +220,7 @@ class ViewPropertyTestCase(unittest.TestCase):
         response = self.app.get('/properties/%s' % search_query)
 
         self.assertTrue(str('"amount": ""') in str(response.data))
-        self.assertTrue(str('"date": ""') in str(response.data))        
+        self.assertTrue(str('"date": ""') in str(response.data))
 
     def test_get_property_returns_404_response_when_no_address_delimiters(self):
         search_query = "PL6%208RU/PATTINSON%20DRIVE100"
