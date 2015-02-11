@@ -14,23 +14,23 @@ from .fake_response import FakeResponse
 
 FakeAddressBase = namedtuple('AddressBase',
                              ['subBuildingName', 'buildingNumber', 'buildingName',
-                              'throughfareName', 'postTown', 'dependentLocality',
+                              'thoroughfareName', 'postTown', 'dependentLocality',
                               'postcode', 'positionY', 'positionX'])
 
 zero_DB_results = []
 
 one_DB_result = [
     FakeAddressBase('subBuildingName', 'buildingNumber', 'buildingName',
-                    'throughfareName', 'postTown', 'dependentLocality',
+                    'thoroughfareName', 'postTown', 'dependentLocality',
                     'postcode', 'positionY', 'positionX'),
 ]
 
 multiple_DB_results = [
     FakeAddressBase('subBuildingName', 'buildingNumber', 'buildingName',
-                    'throughfareName', 'postTown', 'dependentLocality',
+                    'thoroughfareName', 'postTown', 'dependentLocality',
                     'postcode', 'positionY', 'positionX'),
     FakeAddressBase('subBuildingName', 'buildingNumber', 'buildingName',
-                    'throughfareName', 'postTown', 'dependentLocality',
+                    'thoroughfareName', 'postTown', 'dependentLocality',
                     'postcode', 'positionY', 'positionX'),
 ]
 
@@ -138,7 +138,7 @@ class ViewPropertyTestCase(unittest.TestCase):
 
         get_property_address(query_dict)
         mock_filter_by.assert_has_calls(call(postcode=query_dict['postcode']))
-        mock_filter_by.assert_has_calls(call(throughfareName=query_dict['street']))
+        mock_filter_by.assert_has_calls(call(thoroughfareName=query_dict['street']))
 
         # TODO: is there a nicer way to do this?
         boolean_clauses = mock_filter_by.mock_calls[2][1][0].get_children()

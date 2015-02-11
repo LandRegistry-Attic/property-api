@@ -12,7 +12,7 @@ class AddressBase(db.Model):
     subBuildingName = db.Column(db.String(30))
     buildingNumber = db.Column(db.Integer)
     dependentThoroughfareName = db.Column(db.String(80))
-    throughfareName = db.Column(db.String(80))
+    thoroughfareName = db.Column(db.String(80))
     postTown = db.Column(db.String(30))
     doubleDependentLocality = db.Column(db.String(35))
     dependentLocality = db.Column(db.String(35))
