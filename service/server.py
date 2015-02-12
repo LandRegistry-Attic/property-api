@@ -126,10 +126,6 @@ def create_json(address_rec, latest_sale):
 
 @app.route('/properties/<postcode>/<street_paon_saon>', methods=['GET'])
 def get_property(postcode, street_paon_saon):
-    # TODO: remove this
-    if postcode == 'N1BLT' and street_paon_saon == 'imaginary-street':
-        abort(404)
-
     field_vals = [postcode] + street_paon_saon.split('_')
     check_field_vals(field_vals)
     query_dict = get_query_dict(field_vals)
