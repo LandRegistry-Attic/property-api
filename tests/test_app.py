@@ -217,8 +217,9 @@ class ViewPropertyTestCase(unittest.TestCase):
         search_query = "PL2%201AD/ALBERT%20ROAD_10_FLAT%202"
         response = self.app.get('/properties/%s' % search_query)
 
-        self.assertTrue('"amount": ""' in str(response.data))
-        self.assertTrue('"date": ""' in str(response.data))
+        self.assertIn('"amount": null', str(response.data))
+        self.assertIn('"date": null', str(response.data))
+        self.assertIn('"property_type": null', str(response.data))
 
     def test_get_property_returns_404_response_when_no_address_delimiters(self):
         search_query = "PL6%208RU/PATTINSON%20DRIVE100"
