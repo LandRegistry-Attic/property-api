@@ -22,11 +22,11 @@ class AddressBase(db.Model):
     positionY = db.Column(db.Float)
     rpc = db.Column(db.Integer)
     changeType = db.Column(db.String(1))
-    #startDate = db.Column(db.Date)
-    #entryDate = db.Column(db.Date)
-    #lastUpdateDate = db.Column(db.Date)
+    startDate = db.Column(db.Date)
+    entryDate = db.Column(db.Date)
+    lastUpdateDate = db.Column(db.Date)
     primaryClass = db.Column(db.String(1))
-    #processDate = db.Column(db.Date)
+    processDate = db.Column(db.Date)
 
 
     def __str__(self):
