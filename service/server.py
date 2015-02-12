@@ -50,8 +50,11 @@ def page_not_found(e):
 
 
 def get_property_type(url):
-    # Currently the property type is the same as the end of the URL
-    return url.partition('http://landregistry.data.gov.uk/def/common/')[2]
+    if url:
+        # Currently the property type is the same as the end of the URL
+        return url.partition('http://landregistry.data.gov.uk/def/common/')[2]
+    else:
+        return None
 
 
 def check_field_vals(field_vals):
@@ -112,10 +115,10 @@ def create_json(address_rec, latest_sale):
         'town': address_rec.postTown.rstrip(),
         'county': address_rec.dependentLocality.rstrip(),
         'postcode': address_rec.postcode.rstrip(),
-        'amount': latest_sale.get('amount', ''),
-        'date': latest_sale.get('date', ''),
+        'amount': latest_sale.get('amount', None),
+        'date': latest_sale.get('date', None),
         'property_type':
-            get_property_type(latest_sale.get('property_type', '')),
+            get_property_type(latest_sale.get('property_type', None)),
         'coordinates' : {
             'latitude': address_rec.positionY,
             'longitude': address_rec.positionX,
