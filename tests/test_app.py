@@ -207,11 +207,11 @@ class ViewPropertyTestCase(unittest.TestCase):
         self.assertTrue('"date": "2003-04-18"' in str(response.data))
 
     @mock.patch('service.server.get_property_address', return_value=multiple_DB_results)
-    def test_get_property_returns_500_error_when_the_DB_returns_two_result(self, mock_get_property_address):
+    def test_get_property_returns_404_error_when_the_DB_returns_two_result(self, mock_get_property_address):
         search_query = "PL6%208RU/PATTINSON%20DRIVE_100"
         response = self.app.get('/properties/%s' % search_query)
 
-        self.assertTrue('More than one record found' in str(response.data))
+        self.assertEqual(response.status_code, 404)
 
     @mock.patch('service.server.get_property_address', return_value=one_DB_result)
     @mock.patch('requests.post', return_value=empty_PPI_response)
