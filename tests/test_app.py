@@ -94,7 +94,6 @@ address_split_error_message = 'Could not split combined street, PAON and SAON ' 
 
 class ViewPropertyTestCase(unittest.TestCase):
 
-
     def setUp(self):
         self.ppi_api = app.config['PPI_END_POINT']
         self.app = app.test_client()
@@ -140,7 +139,6 @@ class ViewPropertyTestCase(unittest.TestCase):
         mock_filter_by.assert_has_calls(call(postcode=query_dict['postcode']))
         mock_filter_by.assert_has_calls(call(thoroughfareName=query_dict['street']))
 
-        # TODO: is there a nicer way to do this?
         boolean_clauses = mock_filter_by.mock_calls[2][1][0].get_children()
         self.assertEqual(boolean_clauses[0].left.name, 'buildingNumber')
         self.assertEqual(boolean_clauses[0].right.value, query_dict['paon'])
@@ -184,9 +182,9 @@ class ViewPropertyTestCase(unittest.TestCase):
 
         args, kwargs = mock_post.call_args
 
-        self.assertTrue(str(query_dict['postcode']) in str(kwargs['data']))
-        self.assertTrue(str(query_dict['street']) in str(kwargs['data']))
-        self.assertTrue(str(query_dict['paon']) in str(kwargs['data']))
+        self.assertIn(query_dict['postcode'], str(kwargs['data']))
+        self.assertIn(query_dict['street'], str(kwargs['data']))
+        self.assertIn(query_dict['paon'], str(kwargs['data']))
 
     @mock.patch('service.server.get_property_address', return_value=one_DB_result)
     @mock.patch('requests.post', return_value=single_PPI_response)
@@ -194,17 +192,17 @@ class ViewPropertyTestCase(unittest.TestCase):
         search_query = "PL2%201AD/ALBERT%20ROAD_10_FLAT%202"
         response = self.app.get('/properties/%s' % search_query)
 
-        self.assertTrue('"amount": "100000"' in str(response.data))
-        self.assertTrue('"date": "2003-04-17"' in str(response.data))
+        self.assertIn('"amount": "100000"', str(response.data))
+        self.assertIn('"date": "2003-04-17"', str(response.data))
 
     @mock.patch('service.server.get_property_address', return_value=one_DB_result)
     @mock.patch('requests.post', return_value=double_PPI_response)
-    def test_get_property_returns_first_PPI_API_result_when_more_than_one(self, mock_post, mock_get_property_address):
+    def test_get_property_returns_latest_PPI_API_result_when_more_than_one(self, mock_post, mock_get_property_address):
         search_query = "PL2%201AD/ALBERT%20ROAD_10_FLAT%202"
         response = self.app.get('/properties/%s' % search_query)
 
-        self.assertTrue('"amount": "100001"' in str(response.data))
-        self.assertTrue('"date": "2003-04-18"' in str(response.data))
+        self.assertIn('"amount": "100001"', str(response.data))
+        self.assertIn('"date": "2003-04-18"', str(response.data))
 
     @mock.patch('service.server.get_property_address', return_value=multiple_DB_results)
     def test_get_property_returns_404_error_when_the_DB_returns_two_result(self, mock_get_property_address):
