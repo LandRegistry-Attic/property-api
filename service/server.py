@@ -118,6 +118,7 @@ def create_json(address_rec, latest_sale):
             'longitude': address_rec.position.x,
         },
     }
+
     return result
 
 
