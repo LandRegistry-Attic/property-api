@@ -178,8 +178,8 @@ class ViewPropertyTestCase(unittest.TestCase):
         search_query = "PL2%201AD/ALBERT%20ROAD_10_FLAT%202"
         response = self.app.get('/properties/{}'.format(search_query))
 
-        self.assertIn('"amount": "100000"', str(response.data))
-        self.assertIn('"date": "2003-04-17"', str(response.data))
+        self.assertIn('"amount": "100000"', response.data.decode())
+        self.assertIn('"date": "2003-04-17"', response.data.decode())
 
     @mock.patch('service.server.get_property_address', return_value=single_elastic_search_result.hits)
     @mock.patch('requests.post', return_value=double_PPI_response)
@@ -187,8 +187,8 @@ class ViewPropertyTestCase(unittest.TestCase):
         search_query = "PL2%201AD/ALBERT%20ROAD_10_FLAT%202"
         response = self.app.get('/properties/{}'.format(search_query))
 
-        self.assertIn('"amount": "100001"', str(response.data))
-        self.assertIn('"date": "2003-04-18"', str(response.data))
+        self.assertIn('"amount": "100001"', response.data.decode())
+        self.assertIn('"date": "2003-04-18"', response.data.decode())
 
     @mock.patch('service.server.get_property_address', return_value=multiple_elastic_search_result.hits)
     def test_get_property_returns_404_error_when_the_DB_returns_two_result(self, mock_get_property_address):
@@ -203,6 +203,43 @@ class ViewPropertyTestCase(unittest.TestCase):
         search_query = "PL2%201AD/ALBERT%20ROAD_10_FLAT%202"
         response = self.app.get('/properties/{}'.format(search_query))
 
-        self.assertIn('"amount": null', str(response.data))
-        self.assertIn('"date": null', str(response.data))
-        self.assertIn('"property_type": null', str(response.data))
+        self.assertIn('"amount": null', response.data.decode())
+        self.assertIn('"date": null', response.data.decode())
+        self.assertIn('"property_type": null', response.data.decode())
+
+    @mock.patch('service.server.get_property_address', return_value=single_elastic_search_result.hits)
+    @mock.patch('service.server.get_latest_sale')
+    def test_get_property_returns_response_with_the_right_data(self, mock_get_latest_sale, mock_get_property_address):
+        data_from_elastic_search = single_elastic_search_result.hits[0]
+        property_type = 'semi-detached'
+
+        latest_sale_result = {
+            'amount': '100000',
+            'property_type': 'http://landregistry.data.gov.uk/def/common/{}'.format(property_type),
+            'date': '2003-04-17',
+        }
+
+        mock_get_latest_sale.return_value = latest_sale_result
+
+        response = self.app.get('/properties/PL2_1AD/PATTINSON_DRIVE_100')
+        response_json = json.loads(response.data.decode())
+
+        self.assertEqual(len(response_json.items()), 1)
+        self.assertIn('property', response_json)
+        property_element = response_json['property']
+        self.assertEqual(property_element['county'], data_from_elastic_search.dependentLocality)
+        self.assertEqual(property_element['postcode'], data_from_elastic_search.postCode)
+        self.assertEqual(property_element['saon'], data_from_elastic_search.subBuildingName)
+        self.assertEqual(property_element['property_type'], property_type)
+        self.assertEqual(property_element['amount'], latest_sale_result['amount'])
+        self.assertEqual(property_element['paon'], data_from_elastic_search.buildingNumber)
+        self.assertEqual(property_element['date'], latest_sale_result['date'])
+        self.assertEqual(property_element['town'], data_from_elastic_search.postTown)
+        self.assertEqual(property_element['street'], data_from_elastic_search.thoroughfareName)
+
+        self.assertIn('coordinates', property_element)
+        self.assertEqual(property_element['coordinates']['x'], data_from_elastic_search.position.x)
+        self.assertEqual(property_element['coordinates']['y'], data_from_elastic_search.position.y)
+        self.assertEqual(len(property_element['coordinates'].items()), 2)
+
+        self.assertEqual(len(property_element.items()), 10)
