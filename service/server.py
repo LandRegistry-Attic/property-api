@@ -1,17 +1,15 @@
 #!/usr/bin/env python
+from elasticsearch import Elasticsearch
+from elasticsearch_dsl import Search
 import os
 from flask import Flask, jsonify, abort, make_response
 import requests
-from sqlalchemy import Table, Column, String, MetaData, create_engine, Integer
-from sqlalchemy.inspection import inspect
-from sqlalchemy.sql import select, or_
-import pg8000
 
-from service.models import AddressBase
 from service import app
 
 
 PPI_API = app.config['PPI_END_POINT']
+ELASTIC_SEARCH_ENDPOINT = app.config['ELASTIC_SEARCH_ENDPOINT']
 
 
 # see http://landregistry.data.gov.uk/app/hpi/qonsole
@@ -63,14 +61,16 @@ def check_field_vals(field_vals):
             'into respective parts. Expected street_PAON_SAON.', 404))
 
 
-def get_query_dict(field_vals):
+def get_ppi_query_param_dict(address_rec):
+    paon = address_rec.buildingNumber or address_rec.buildingName.rstrip()
+    saon = address_rec.subBuildingName.rstrip()
     query_dict = {
-        'postcode': field_vals[0],
-        'street': field_vals[1],
-        'paon': field_vals[2],
+        'postcode': address_rec.postCode.rstrip(),
+        'street': address_rec.thoroughfareName.rstrip(),
+        'paon': paon,
     }
-    if len(field_vals) == 4:
-        query_dict['saon'] = field_vals[3]
+    if saon:
+        query_dict['saon'] = saon
     return query_dict
 
 
@@ -90,17 +90,12 @@ def get_latest_sale(query_dict):
     return latest_sale
 
 
-def get_property_address(query_dict):
-    results = (AddressBase.query.
-        filter_by(postcode=query_dict['postcode']).
-        filter_by(thoroughfareName=query_dict['street']).
-        filter(or_(
-            AddressBase.buildingNumber == query_dict['paon'],
-            AddressBase.buildingName == query_dict['paon'])))
-    if 'saon' in query_dict:
-        results = results.filter_by(subBuildingName=query_dict['saon'])
+def get_property_address(address_key):
+    client = Elasticsearch([ELASTIC_SEARCH_ENDPOINT])
+    search = Search(using=client, index='landregistry')
+    query = search.filter('term', addressKey=address_key)
 
-    return results.all()
+    return query.execute().hits
 
 
 def create_json(address_rec, latest_sale):
@@ -113,33 +108,33 @@ def create_json(address_rec, latest_sale):
         'street': address_rec.thoroughfareName.rstrip(),
         'town': address_rec.postTown.rstrip(),
         'county': address_rec.dependentLocality.rstrip(),
-        'postcode': address_rec.postcode.rstrip(),
+        'postcode': address_rec.postCode.rstrip(),
         'amount': latest_sale.get('amount', None),
         'date': latest_sale.get('date', None),
         'property_type':
             get_property_type(latest_sale.get('property_type', None)),
         'coordinates' : {
-            'latitude': address_rec.positionY,
-            'longitude': address_rec.positionX,
+            'latitude': address_rec.position.y,
+            'longitude': address_rec.position.x,
         },
     }
+
     return result
 
 
-@app.route('/properties/<postcode>/<street_paon_saon>', methods=['GET'])
-def get_property(postcode, street_paon_saon):
-    field_vals = [postcode] + street_paon_saon.split('_')
-    check_field_vals(field_vals)
-    query_dict = get_query_dict(field_vals)
-
-    address_recs = get_property_address(query_dict)
+@app.route('/properties/<postcode>/<joined_address_fields>', methods=['GET'])
+def get_property(postcode, joined_address_fields):
+    address_key = '{}_{}'.format(joined_address_fields, postcode).upper()
+    address_recs = get_property_address(address_key)
     nof_results = len(address_recs)
     if nof_results != 1:
         abort(404)
+    address_rec = address_recs[0]
 
+    query_dict = get_ppi_query_param_dict(address_rec)
     latest_sale = get_latest_sale(query_dict)
 
-    result = create_json(address_recs[0], latest_sale)
+    result = create_json(address_rec, latest_sale)
 
     return jsonify(result)
 

@@ -1,3 +1,3 @@
 export SETTINGS='config.DevelopmentConfig'
 export PPI_END_POINT='http://landregistry.data.gov.uk/landregistry/query'
-export POSTGRES_DATABASE_URI='postgresql+pg8000://postgres:password@172.16.42.43:5432/pubdata'
+export ELASTIC_SEARCH_ENDPOINT='http://ec2-54-77-238-128.eu-west-1.compute.amazonaws.com:4200'
