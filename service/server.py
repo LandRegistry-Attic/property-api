@@ -61,7 +61,7 @@ def check_field_vals(field_vals):
             'into respective parts. Expected street_PAON_SAON.', 404))
 
 
-def get_query_dict(address_rec):
+def get_ppi_query_param_dict(address_rec):
     paon = address_rec.buildingNumber or address_rec.buildingName.rstrip()
     saon = address_rec.subBuildingName.rstrip()
     query_dict = {
@@ -131,7 +131,7 @@ def get_property(postcode, joined_address_fields):
         abort(404)
     address_rec = address_recs[0]
 
-    query_dict = get_query_dict(address_rec)
+    query_dict = get_ppi_query_param_dict(address_rec)
     latest_sale = get_latest_sale(query_dict)
 
     result = create_json(address_rec, latest_sale)
