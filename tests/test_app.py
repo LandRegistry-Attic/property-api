@@ -128,7 +128,7 @@ class ViewPropertyTestCase(unittest.TestCase):
     @mock.patch('requests.post')
     def test_get_property_address_called_correctly(self, mock_post, mock_get_property_address):
         postcode = 'PL6_8RU'
-        joined_address_fields = '100_PATTINSON_DRIVE_PL6_8RU'
+        joined_address_fields = '100_PATTINSON_DRIVE'
         expected_address_key = '{}_{}'.format(joined_address_fields, postcode)
 
         response = self.app.get('/properties/{}/{}'.format(postcode, joined_address_fields))
