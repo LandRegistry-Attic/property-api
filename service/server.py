@@ -11,7 +11,7 @@ from service.models import AddressBase
 from service import app
 
 
-ppi_api = app.config['PPI_END_POINT']
+PPI_API = app.config['PPI_END_POINT']
 
 
 # see http://landregistry.data.gov.uk/app/hpi/qonsole
@@ -79,8 +79,7 @@ def get_latest_sale(query_dict):
     kv_lines = [kv_tmpl.format(k, v.upper()) for k, v in query_dict.items()]
 
     query = PPI_QUERY_TMPL.format('\n'.join(kv_lines))
-    ppi_url = ppi_api
-    resp = requests.post(ppi_url, data={'output': 'json', 'query': query})
+    resp = requests.post(PPI_API, data={'output': 'json', 'query': query})
 
     sale_list = resp.json()['results']['bindings']
 
