@@ -24,7 +24,6 @@ FakeQuery = namedtuple('Query', ['all'])
 FakePosition = namedtuple('AttrDict', ['x', 'y'])
 
 
-# TODO: change that data to something "real"
 single_elastic_search_result = FakeElasticSearchResult(
     hits=[
         FakeElasticSearchHit(
