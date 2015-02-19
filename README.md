@@ -1,6 +1,6 @@
 # Setup
 
-[![Build Status](http://54.72.23.130/job/property-title-api-unit-tests/badge/icon)](http://54.72.23.130/job/property-title-api-unit-tests/)
+[![Build Status](http://54.72.23.130/job/property-api-unit-tests/badge/icon)](http://54.72.23.130/job/property-api-unit-tests/)
 
 This is an app that should usually be run in the normal way (ie. using the
 lr-\* scripts). However it is also possible to set it up and run it
