@@ -103,19 +103,21 @@ def create_json(address_rec, latest_sale):
     paon = address_rec.buildingNumber or address_rec.buildingName.rstrip()
 
     result = {
-        'saon': address_rec.subBuildingName.rstrip(),
-        'paon': paon,
-        'street': address_rec.thoroughfareName.rstrip(),
-        'town': address_rec.postTown.rstrip(),
-        'county': address_rec.dependentLocality.rstrip(),
-        'postcode': address_rec.postCode.rstrip(),
-        'amount': latest_sale.get('amount', None),
-        'date': latest_sale.get('date', None),
-        'property_type':
-            get_property_type(latest_sale.get('property_type', None)),
-        'coordinates' : {
-            'latitude': address_rec.position.y,
-            'longitude': address_rec.position.x,
+        'property': {
+            'saon': address_rec.subBuildingName.rstrip(),
+            'paon': paon,
+            'street': address_rec.thoroughfareName.rstrip(),
+            'town': address_rec.postTown.rstrip(),
+            'county': address_rec.dependentLocality.rstrip(),
+            'postcode': address_rec.postCode.rstrip(),
+            'amount': latest_sale.get('amount', None),
+            'date': latest_sale.get('date', None),
+            'property_type':
+                get_property_type(latest_sale.get('property_type', None)),
+            'coordinates' : {
+                'x': address_rec.position.x,
+                'y': address_rec.position.y,
+            },
         },
     }
 
