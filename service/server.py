@@ -1,13 +1,14 @@
 #!/usr/bin/env python
 from elasticsearch import Elasticsearch
 from elasticsearch_dsl import Search
-import os
+import logging
+import logging.config
 from flask import Flask, jsonify, abort, make_response
 import requests
 
 from service import app
 
-
+LOGGER = logging.getLogger(__name__)
 PPI_API = app.config['PPI_END_POINT']
 ELASTIC_SEARCH_ENDPOINT = app.config['ELASTIC_SEARCH_ENDPOINT']
 
@@ -36,14 +37,15 @@ WHERE
 ORDER BY desc(?date) limit 1
 """
 
-
 @app.errorhandler(Exception)
 def exception_handler(e):
-  return jsonify(error=500, text='{}'.format(e)), 500
+    LOGGER.error("An error occurred when processing a request", exc_info = e)
+    return jsonify(error=500, text='{}'.format(e)), 500
 
 
 @app.errorhandler(404)
 def page_not_found(e):
+    LOGGER.error("Requested resource not found ({})".format(e.description))
     return jsonify(error=404, text=str(e)), 404
 
 
