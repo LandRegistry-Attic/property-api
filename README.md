@@ -25,8 +25,8 @@ and execute it:
 ## Dependencies
 
 ```bash
--bash-4.2$ python --version
-Python 2.7.5
+-bash-4.2$ python3 --version
+Python 3.4.1
 ```
 
 [ElasticSearch](http://www.elasticsearch.org) provides the search functionality, and must be running at the $ELASTIC_SEARCH_ENDPOINT listed in the environment variables.
