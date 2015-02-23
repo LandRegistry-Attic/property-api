@@ -21,3 +21,8 @@ and execute it:
     workon property-api
     . ./environment.sh && ./run_dev.py
 ```
+
+## Dependencies
+
+ElasticSearch provides the search functionality, and must be running at the $ELASTIC_SEARCH_ENDPOINT listed in the environment variables.
+
