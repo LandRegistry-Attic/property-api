@@ -1,12 +1,14 @@
-import os, logging
+import logging
 from flask import Flask
 from logging import config
 import requests
 import json
 
-app = Flask(__name__)
+from config import CONFIG_DICT
 
-app.config.from_object(os.environ.get('SETTINGS'))
+app = Flask(__name__)
+app.config.update(CONFIG_DICT)
+
 
 def setup_logging():
     logging_config_file_path = app.config['LOGGING_CONFIG_FILE']
