@@ -6,4 +6,4 @@ elasticsearch==1.4.0
 elasticsearch-dsl==0.0.3
 itsdangerous==0.24
 requests==2.5.1
-urllib3==1.10.1
+urllib3==1.26.5
